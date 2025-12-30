@@ -499,8 +499,8 @@ class Mmu:
         self.update_trsync = config.getint('update_trsync', 0, minval=0, maxval=1)
 
         # Some CANbus boards are prone to this but it have been seen on regular USB boards where a comms
-        # timeout will kill the print. Since it seems to occur only on homing moves perhaps because of too
-        # high a microstep setting or speed. They can be safely retried to workaround.
+        # timeout or timer too close error will kill the print. Since it seems to occur only on homing moves 
+        # perhaps because of too high a microstep setting or speed. They can be safely retried to workaround.
         # This has been working well in practice.
         self.canbus_comms_retries = config.getint('canbus_comms_retries', 3, minval=1, maxval=10)
 
@@ -5287,6 +5287,7 @@ class Mmu:
                         pos[1] += dist
                         for _ in range(self.canbus_comms_retries):  # HACK: We can repeat because homing move
                             got_comms_timeout = False # HACK: Logic to try to mask CANbus timeout issues
+                            got_timer_error = False # HACK: Logic to try to mask timer too close errors
                             try:
                                 #initial_mcu_pos = self.mmu_extruder_stepper.stepper.get_mcu_position()
                                 #init_pos = pos[1]
@@ -5299,10 +5300,13 @@ class Mmu:
                                     if abs(trig_pos[1] - dist) < 1.0:
                                         homed = False
                             except self.printer.command_error as e:
-                                # CANbus mcu's often seen to exhibit "Communication timeout" so surface errors to user
+                                # CANbus mcu's often seen to exhibit "Communication timeout" and "Timer too close" errors
                                 if abs(trig_pos[1] - dist) > 0. and "after full movement" not in str(e):
                                     if 'communication timeout' in str(e).lower():
                                         got_comms_timeout = True
+                                        speed *= 0.8 # Reduce speed by 20%
+                                    elif 'timer too close' in str(e).lower():
+                                        got_timer_error = True
                                         speed *= 0.8 # Reduce speed by 20%
                                     self.log_error("Did not complete homing move: %s" % str(e))
                                 else:
@@ -5323,7 +5327,7 @@ class Mmu:
                                 actual = halt_pos[1] - init_pos
                                 if self.log_enabled(self.LOG_STEPPER):
                                     self.log_stepper("%s HOMING MOVE: max dist=%.1f, speed=%.1f, accel=%.1f, endstop_name=%s, wait=%s >> %s" % (motor.upper(), dist, speed, accel, endstop_name, wait, "%s halt_pos=%.1f (rail moved=%.1f, extruder moved=%.1f), start_pos=%.1f, trig_pos=%.1f" % ("HOMED" if homed else "DID NOT HOMED",  halt_pos[1], actual, ext_actual, start_pos, trig_pos[1])))
-                            if not got_comms_timeout:
+                            if not got_comms_timeout and not got_timer_error:
                                 break
                     else:
                         if self.log_enabled(self.LOG_STEPPER):
