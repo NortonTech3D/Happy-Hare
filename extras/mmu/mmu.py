@@ -5304,9 +5304,9 @@ class Mmu:
                                 if abs(trig_pos[1] - dist) > 0. and "after full movement" not in str(e):
                                     if 'communication timeout' in str(e).lower():
                                         got_comms_timeout = True
-                                        speed *= 0.8 # Reduce speed by 20%
                                     elif 'timer too close' in str(e).lower():
                                         got_timer_error = True
+                                    if got_comms_timeout or got_timer_error:
                                         speed *= 0.8 # Reduce speed by 20%
                                     self.log_error("Did not complete homing move: %s" % str(e))
                                 else:
