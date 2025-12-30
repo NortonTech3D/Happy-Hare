@@ -5088,7 +5088,7 @@ class Mmu:
                         park_pos += moved
 
             self._set_filament_position(-park_pos)
-            # Use already-calculated final encoder position to avoid redundant read
+            # Set encoder distance based on initial position plus the park distance
             self.set_encoder_distance(initial_encoder_position + park_pos)
 
             # Set final filament position state
@@ -5102,7 +5102,7 @@ class Mmu:
     def _do_form_tip(self, gcode_macro=None, test=False):
         # Accept macro as parameter to avoid redundant lookup
         if gcode_macro is None:
-            gcode_macro = self.printer.lookup_object("gcode_macro %s" % self.form_tip_macro, "_MMU_FORM_TIP")
+            gcode_macro = self.printer.lookup_object("gcode_macro %s" % self.form_tip_macro, None)
         
         with self._wrap_extruder_current(self.extruder_form_tip_current, "for tip forming move"):
             initial_mcu_pos = self.mmu_extruder_stepper.stepper.get_mcu_position()
